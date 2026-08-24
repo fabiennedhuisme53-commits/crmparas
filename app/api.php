@@ -34,7 +34,7 @@ header('Access-Control-Allow-Headers: Content-Type, X-Sync-Token');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') { exit; }
 
-$SECRET = 'paraveda-2026-sync';
+$SECRET = 'c6e04cb5de9088be01a685abc243995a80426eba45de2060';
 
 $KEYS = array(
   "afrizon_users_v1","afrizon_orders_v5","afrizon_agent_names_v1",
@@ -55,9 +55,14 @@ define('CRM_FUTURE_MS',        60000); // تسامح ساعة الجهاز (دق
 /* بصمات بيانات المصنع المضمّنة في التطبيق (sha256 لمحتوى JSON كما يرسله المتصفح).
  * إذا وصل "بالضبط" هذا المحتوى فوق بيانات أحدث → رفض (ghost_seed).
  * أُخذت من حزمة الواجهة: users الافتراضي [admin@paraveda.ma]،
- * الطلبيات التجريبية dp()، وأسماء الوكلاء الافتراضية. */
+ * الطلبيات التجريبية dp()، وأسماء الوكلاء الافتراضية.
+ * ملاحظة: نسختان من users seed — القديمة (admin123) لكاش المتصفحات
+ * القديمة، والجديدة (كلمة السر الحالية) للنسخة المحدثة. */
 $GLOBALS['CRM_SEED_HASHES'] = array(
-  "afrizon_users_v1"       => array("49419fd53fcd0287ba747af929f5439faa6c20c423a9f954bd933abcd52719d6"),
+  "afrizon_users_v1"       => array(
+    "49419fd53fcd0287ba747af929f5439faa6c20c423a9f954bd933abcd52719d6", // seed قديم: admin123
+    "108061314dc7d0ccd39eaea1f404b0b54b55198f5b9cb6040d7a2ee87e9abd52", // seed جديد
+  ),
   "afrizon_orders_v5"      => array("c7df94df270625f03e60ab7d3b706e476a6ce464c12e76e44a32e8a253cf7929"),
   "afrizon_agent_names_v1" => array("c6019f6b4c6eb01da6f877f05771ebfb5fedc40cb52aff3556e5beb9e044ef36"),
 );

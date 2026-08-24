@@ -1,7 +1,7 @@
 // Extract factory seed data from the built CRM bundle and emit exact JSON
 const fs = require('fs');
 const path = require('path');
-const html = fs.readFileSync(path.join(__dirname, 'crmparas/app/index.html'), 'utf8');
+const html = fs.readFileSync(path.join(__dirname, '../app/index.html'), 'utf8');
 
 // bracket/brace-balanced scanner that respects strings
 function extractAfter(src, startIdx, openChar, closeChar) {
