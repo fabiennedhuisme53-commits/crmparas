@@ -51,6 +51,8 @@ define('CRM_DAILY_KEEP',       45);    // عدد اللقطات اليومية �
 define('CRM_HIST_PER_KEY',     30);    // حجم سجل بصمات كل مفتاح (لمكافحة الأشباح)
 define('CRM_AUDIT_MAX_BYTES',  2097152); // 2MB ثم يدور السجل
 define('CRM_FUTURE_MS',        60000); // تسامح ساعة الجهاز (دقيقة للمستقبل)
+// سقف إجمالي حجم مجلد النسخ الاحتياطية (256MB) — بعده تُحذف الأقدم أولاً
+$GLOBALS['CRM_BACKUPS_MAX_BYTES'] = isset($GLOBALS['CRM_BACKUPS_MAX_BYTES']) ? $GLOBALS['CRM_BACKUPS_MAX_BYTES'] : 268435456;
 
 /* بصمات بيانات المصنع المضمّنة في التطبيق (sha256 لمحتوى JSON كما يرسله المتصفح).
  * إذا وصل "بالضبط" هذا المحتوى فوق بيانات أحدث → رفض (ghost_seed).
@@ -114,12 +116,22 @@ function crm_storage_dir() {
 
   foreach ($candidates as $c) {
     $d = $c[0];
+    $hadData = file_exists($d . '/crm_data.json');
     if (!is_dir($d)) { @mkdir($d, 0755, true); }
     if (is_dir($d) && is_writable($d)) {
       crm_protect_dir($d);
       $dir = $d; $mode = $c[1];
       crm_migrate_legacy($d);
       return array($d, $mode);
+    }
+    // المجلد فيه بياناتنا لكنه فقد قابلية الكتابة (تغيير صلاحيات من الهوست؟)
+    // → خطأ صريح أفضل من التبديل الصامت لمكان آخر (يبدو كأن البيانات اختفت)
+    if ($hadData && !is_writable($d)) {
+      if (!headers_sent()) {
+        http_response_code(500);
+        echo json_encode(array('ok'=>false, 'err'=>'storage-readonly', 'dir'=>basename($d)), JSON_UNESCAPED_UNICODE);
+      }
+      exit;
     }
   }
   $dir = false; $mode = 'nowhere';
@@ -296,6 +308,24 @@ function crm_backup_current($reason) {
     @copy($p, $daily);
     crm_rotate('d-', CRM_DAILY_KEEP);
   }
+
+  // سقف الحجم الكلي: احذف الأقدم أولاً (مع إبقاء آخر نسختين على الأقل)
+  crm_backups_trim_size();
+}
+function crm_backups_trim_size() {
+  $dir = crm_backups_dir();
+  if ($dir === false || !is_dir($dir)) return;
+  $max = isset($GLOBALS['CRM_BACKUPS_MAX_BYTES']) ? (int)$GLOBALS['CRM_BACKUPS_MAX_BYTES'] : 268435456;
+  $files = array_merge(crm_backup_files('b-'), crm_backup_files('d-'));
+  $total = 0;
+  foreach ($files as $f) { $total += @filesize($f) ?: 0; }
+  $n = count($files);
+  $i = 0;
+  while ($total > $max && $i < $n - 2) {
+    $sz = @filesize($files[$i]) ?: 0;
+    if (@unlink($files[$i])) { $total -= $sz; }
+    $i++;
+  }
 }
 function crm_rotate($prefix, $keep) {
   $files = crm_backup_files($prefix);
@@ -406,6 +436,11 @@ try {
 
       $lock = crm_lock();
       crm_backup_current('pre-restore');
+      // رفع t لكل المفاتيح إلى "الآن" حتى تتبناها كل الأجهزة فأقرب poll
+      $nowRestore = crm_now_ms();
+      foreach ($jj as $rk => $rv) {
+        if (is_array($rv) && isset($rv['t'])) $jj[$rk]['t'] = max($nowRestore, (int)$rv['t']);
+      }
       crm_atomic_write(crm_data_path(), json_encode($jj, JSON_UNESCAPED_UNICODE));
       $meta = crm_read_meta();
       $meta['counts']['restore']++;
