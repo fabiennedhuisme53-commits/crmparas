@@ -1,8 +1,0 @@
-# بيانات CRM محلية (لا تُرفع للمستودع)
-crm-paraveda-data/
-app/crm-paraveda-data*/
-app/crm_data.json
-app/crm_data.json.tmp.*
-app/.htaccess
-tests/node_modules/
-app/Paraveda-deploy-FINAL.zip
