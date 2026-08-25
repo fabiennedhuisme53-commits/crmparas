@@ -337,6 +337,20 @@ function crm_canon_hash($d) {
   return hash('sha256', json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
 
+/* مسح تلقائي لبيانات الديمو (v2.4): إذا كانت الطلبيات المخزنة تطابق "بالكامل"
+ * الـ seed التجريبي (168 طلبية) تُستبدل بقائمة فارغة — مرة واحدة فقط (علم في meta).
+ * آمن 100%: أي بيانات حقيقية مختلطة لا تطابق → لا يُمَس أي شيء. */
+function crm_maybe_wipe_demo(&$data) {
+  if (isset($data['afrizon_orders_v5']['d'])) {
+    $h = crm_canon_hash($data['afrizon_orders_v5']['d']);
+    if (in_array($h, $GLOBALS['CRM_SEED_HASHES']['afrizon_orders_v5'], true)) {
+      $data['afrizon_orders_v5'] = array('t' => crm_now_ms(), 'd' => array());
+      return true;
+    }
+  }
+  return false;
+}
+
 /* ===================================================================== */
 /* المعالجة الرئيسية                                                     */
 /* ===================================================================== */
@@ -407,6 +421,20 @@ try {
     if ($dir === false) crm_out(array(), 500);
     crm_boot_meta();
     $data = crm_read_data();
+
+    // مسح تلقائي لبيانات الديمو (مرة واحدة) — إلا كانت مطابقة تماماً للـ seed
+    $meta = crm_read_meta();
+    if (empty($meta['demo_wipe_done'])) {
+      $lock = crm_lock();
+      if (crm_maybe_wipe_demo($data)) {
+        crm_atomic_write(crm_data_path(), json_encode($data, JSON_UNESCAPED_UNICODE));
+        crm_audit('demo_autowipe', 'exact factory demo orders replaced with an empty list');
+      }
+      $meta['demo_wipe_done'] = 1;
+      crm_write_meta($meta);
+      crm_unlock($lock);
+    }
+
     if (count($data) === 0) { echo '{}'; exit; }
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
@@ -464,6 +492,15 @@ try {
     $lock = crm_lock();
     $data = crm_read_data(true, true); // داخل القفل + استرجاع تلقائي إن لزم
     $meta = crm_read_meta();
+
+    // مسح تلقائي لبيانات الديمو (مرة واحدة) — إلا كانت مطابقة تماماً للـ seed
+    if (empty($meta['demo_wipe_done'])) {
+      if (crm_maybe_wipe_demo($data)) {
+        crm_atomic_write(crm_data_path(), json_encode($data, JSON_UNESCAPED_UNICODE));
+        crm_audit('demo_autowipe', '(post) exact factory demo orders replaced with an empty list');
+      }
+      $meta['demo_wipe_done'] = 1;
+    }
 
     $nowMs = crm_now_ms();
     $t = min($tIn, $nowMs + CRM_FUTURE_MS); // تثبيت ساعة الجهاز

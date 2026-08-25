@@ -207,6 +207,41 @@ echo 'dummies created';` });
   check('old heavy backups trimmed below cap', after2020 < beforeCount, `before=${beforeCount} after=${after2020}`);
   check('at least 2 backups survive the trim', r.json.backups.length >= 2);
 
+  console.log('\n== 13. demo auto-wipe (exact factory seed) ==');
+  const php3 = new PHP(await loadNodeRuntime('8.3', { emscriptenOptions: { processId: 1302 } }));
+  php3.mkdirTree('/srv');
+  php3.writeFile('/srv/api.php', API);
+  const demoOrders = JSON.parse(SEEDS.orders_seed);
+  php3.mkdirTree('/crm-paraveda-data');
+  php3.writeFile('/crm-paraveda-data/crm_data.json', JSON.stringify({
+    afrizon_users_v1: { t: 900, d: usersV2 },
+    afrizon_orders_v5: { t: 1000, d: demoOrders },
+  }));
+  r = await (async () => {
+    const rr = await php3.run({ code: buildReq('GET', { token: TOKEN }) });
+    return { text: Buffer.from(rr.bytes).toString().trim(), json: JSON.parse(Buffer.from(rr.bytes).toString()) };
+  })();
+  check('GET wiped exact-demo orders to empty', r.json.afrizon_orders_v5 && Array.isArray(r.json.afrizon_orders_v5.d) && r.json.afrizon_orders_v5.d.length === 0 && r.json.afrizon_users_v1 && r.json.afrizon_users_v1.d.length === 7, 'orders=' + (r.json.afrizon_orders_v5 ? r.json.afrizon_orders_v5.d.length : '?') + ' users=' + (r.json.afrizon_users_v1 ? r.json.afrizon_users_v1.d.length : '?'));
+  check('wipe bumped t so clients adopt the empty list', r.json.afrizon_orders_v5.t >= Date.now() - 5000, String(r.json.afrizon_orders_v5.t));
+  r = await (async () => {
+    const rr = await php3.run({ code: buildReq('GET', { token: TOKEN, query: { action: 'status' } }) });
+    return { json: JSON.parse(Buffer.from(rr.bytes).toString()) };
+  })();
+  const wipes = (r.json.audit_tail || []).filter(l => l.includes('demo_autowipe')).length;
+  check('wipe happened exactly once (flag works)', wipes === 1, 'wipes=' + wipes);
+
+  // mixed data must NOT be touched
+  const php4 = new PHP(await loadNodeRuntime('8.3', { emscriptenOptions: { processId: 1303 } }));
+  php4.mkdirTree('/srv');
+  php4.writeFile('/srv/api.php', API);
+  php4.mkdirTree('/crm-paraveda-data');
+  php4.writeFile('/crm-paraveda-data/crm_data.json', JSON.stringify({
+    afrizon_orders_v5: { t: 1000, d: [...demoOrders, { ...demoOrders[0], id: 999, nom: 'REAL CLIENT' }] },
+  }));
+  const r4 = await php4.run({ code: buildReq('GET', { token: TOKEN }) });
+  const j4 = JSON.parse(Buffer.from(r4.bytes).toString());
+  check('mixed demo+real data left untouched (169 orders kept)', j4.afrizon_orders_v5.d.length === 169, 'n=' + j4.afrizon_orders_v5.d.length);
+
   console.log(`\n===== RESULT: ${pass} passed, ${fail} failed =====`);
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('SUITE ERROR:', e); process.exit(1); });

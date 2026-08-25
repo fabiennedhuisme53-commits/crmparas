@@ -48,5 +48,31 @@ if (m) {
   check('confirm CANCEL → nothing deleted, selection kept', confirmCalls === 1 && delIds.length === 0 && setSel === null);
 }
 
+// ---- 3) v2.4: demo seed disabled at the source (dp() must return []) ----
+function extractBalanced(str, startIdx, open, close) {
+  let i = startIdx, depth = 0, inStr = null;
+  for (; i < str.length; i++) {
+    const c = str[i];
+    if (inStr) { if (c === '\\') { i++; continue; } if (c === inStr) inStr = null; continue; }
+    if (c === '"' || c === "'" || c === '`') { inStr = c; continue; }
+    if (c === open) depth++;
+    else if (c === close) { depth--; if (depth === 0) return str.slice(startIdx, i + 1); }
+  }
+  throw new Error('unbalanced');
+}
+try {
+  const a4Idx = html.search(/[,;]A4=/);
+  const a4Src = 'var A4=' + extractBalanced(html, a4Idx + 1 + 'A4='.length, '[', ']') + ';';
+  const dpIdx = html.indexOf('function dp(){');
+  const dpSrc = extractBalanced(html, dpIdx + 'function dp()'.length, '{', '}');
+  const result = new Function(a4Src + ' function dp()' + dpSrc + ' return dp();')();
+  check('v2.4: factory seed dp() returns EMPTY list (demo dead at source)', Array.isArray(result) && result.length === 0, 'n=' + (result && result.length));
+} catch (e) {
+  check('v2.4: factory seed dp() returns EMPTY list (demo dead at source)', false, e.message);
+}
+check('v2.4: reset() neutered in the store', html.includes('reset:()=>{}'));
+check('v2.4: no Save/Reset buttons left', !html.includes('children:"Save CMD"') && !html.includes('children:"Reset"') && !html.includes('children:"Save"})') && !html.includes('children:"↺ Reset"'));
+check('v2.4: auto-checkpoint effect present', html.includes('clearTimeout(__t)},[a,c])'));
+
 console.log(`\n===== BULK-DELETE UNIT RESULT: ${pass} passed, ${fail} failed =====`);
 process.exit(fail ? 1 : 0);
