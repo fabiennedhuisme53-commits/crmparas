@@ -164,7 +164,7 @@ echo 'aged';`;
   r = await req('POST', { token: TOKEN, body: { action: 'restore', file: oldest } });
   check('restore executed', r.json && r.json.ok === true, r.text.slice(0, 120));
   r = await get();
-  check('after restore: orders back to demo state', r.json.afrizon_orders_v5.d.length === 168, 'n=' + r.json.afrizon_orders_v5.d.length);
+  check('after restore: exact-demo orders stay DEAD (auto-wiped by design)', r.json.afrizon_orders_v5.d.length === 0, 'n=' + r.json.afrizon_orders_v5.d.length);
   r = await req('POST', { token: TOKEN, body: { action: 'restore', file: '../../etc/passwd' } });
   check('restore path traversal blocked', r.json && r.json.ok === false);
 
@@ -241,6 +241,20 @@ echo 'dummies created';` });
   const r4 = await php4.run({ code: buildReq('GET', { token: TOKEN }) });
   const j4 = JSON.parse(Buffer.from(r4.bytes).toString());
   check('mixed demo+real data left untouched (169 orders kept)', j4.afrizon_orders_v5.d.length === 169, 'n=' + j4.afrizon_orders_v5.d.length);
+
+  console.log('\n== 14. demo written as FIRST write (POST before GET) ==');
+  const php5 = new PHP(await loadNodeRuntime('8.3', { emscriptenOptions: { processId: 1304 } }));
+  php5.mkdirTree('/srv');
+  php5.writeFile('/srv/api.php', API);
+  const r5a = await php5.run({ code: buildReq('POST', { token: TOKEN, body: { key: 'afrizon_users_v1', t: 1, d: usersSeedNew } }) });
+  const r5b = await php5.run({ code: buildReq('POST', { token: TOKEN, body: { key: 'afrizon_orders_v5', t: 2, d: demoOrders } }) });
+  check('fresh server accepted the posts', JSON.parse(Buffer.from(r5a.bytes).toString()).ok === true && JSON.parse(Buffer.from(r5b.bytes).toString()).ok === true);
+  const r5c = await php5.run({ code: buildReq('GET', { token: TOKEN }) });
+  const j5 = JSON.parse(Buffer.from(r5c.bytes).toString());
+  check('flag was NOT consumed early — demo wiped on first real GET', j5.afrizon_orders_v5.d.length === 0, 'n=' + j5.afrizon_orders_v5.d.length);
+  const r5d = await php5.run({ code: buildReq('GET', { token: TOKEN, query: { action: 'status' } }) });
+  const j5d = JSON.parse(Buffer.from(r5d.bytes).toString());
+  check('audited as demo_autowipe', (j5d.audit_tail || []).some(l => l.includes('demo_autowipe')));
 
   console.log(`\n===== RESULT: ${pass} passed, ${fail} failed =====`);
   process.exit(fail ? 1 : 0);

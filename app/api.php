@@ -339,16 +339,19 @@ function crm_canon_hash($d) {
 
 /* مسح تلقائي لبيانات الديمو (v2.4): إذا كانت الطلبيات المخزنة تطابق "بالكامل"
  * الـ seed التجريبي (168 طلبية) تُستبدل بقائمة فارغة — مرة واحدة فقط (علم في meta).
- * آمن 100%: أي بيانات حقيقية مختلطة لا تطابق → لا يُمَس أي شيء. */
+ * آمن 100%: أي بيانات حقيقية مختلطة لا تطابق → لا يُمَس أي شيء.
+ * ترجع: 'wipe' (تم المسح) | 'checked' (دُوّن العلم) | 'none' (لا طلبيات بعد —
+ * لا تدوّن العلم حتى لا يُستهلك قبل وصول أي داتا) */
 function crm_maybe_wipe_demo(&$data) {
   if (isset($data['afrizon_orders_v5']['d'])) {
     $h = crm_canon_hash($data['afrizon_orders_v5']['d']);
     if (in_array($h, $GLOBALS['CRM_SEED_HASHES']['afrizon_orders_v5'], true)) {
       $data['afrizon_orders_v5'] = array('t' => crm_now_ms(), 'd' => array());
-      return true;
+      return 'wipe';
     }
+    return 'checked';
   }
-  return false;
+  return 'none';
 }
 
 /* ===================================================================== */
@@ -426,12 +429,15 @@ try {
     $meta = crm_read_meta();
     if (empty($meta['demo_wipe_done'])) {
       $lock = crm_lock();
-      if (crm_maybe_wipe_demo($data)) {
+      $wr = crm_maybe_wipe_demo($data);
+      if ($wr === 'wipe') {
         crm_atomic_write(crm_data_path(), json_encode($data, JSON_UNESCAPED_UNICODE));
         crm_audit('demo_autowipe', 'exact factory demo orders replaced with an empty list');
       }
-      $meta['demo_wipe_done'] = 1;
-      crm_write_meta($meta);
+      if ($wr !== 'none') {
+        $meta['demo_wipe_done'] = 1;
+        crm_write_meta($meta);
+      }
       crm_unlock($lock);
     }
 
@@ -495,11 +501,15 @@ try {
 
     // مسح تلقائي لبيانات الديمو (مرة واحدة) — إلا كانت مطابقة تماماً للـ seed
     if (empty($meta['demo_wipe_done'])) {
-      if (crm_maybe_wipe_demo($data)) {
+      $wr = crm_maybe_wipe_demo($data);
+      if ($wr === 'wipe') {
         crm_atomic_write(crm_data_path(), json_encode($data, JSON_UNESCAPED_UNICODE));
         crm_audit('demo_autowipe', '(post) exact factory demo orders replaced with an empty list');
+        $meta['demo_wipe_done'] = 1;
+      } elseif ($wr === 'checked') {
+        $meta['demo_wipe_done'] = 1;
       }
-      $meta['demo_wipe_done'] = 1;
+      // 'none': لا علم بعد — أول فحص حقيقي يبقى قادماً
     }
 
     $nowMs = crm_now_ms();
