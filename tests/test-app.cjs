@@ -172,6 +172,31 @@ function makeDom() {
     if (backCmd) { backCmd.click(); await sleep(1000); }
   } catch (e) { check('Ranking page opens', false, e.message); }
 
+  console.log('\n== E2E: CALCULATOR (v2.6) ==');
+  try {
+    const calcBtn = allBtns().find(b => (b.title || '').includes('آلة حاسبة'));
+    check('🧮 button in top-right header pill', !!calcBtn);
+    if (calcBtn) {
+      calcBtn.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true }));
+      let seenFrames = 0;
+      for (let z = 0; z < 30; z++) {
+        await sleep(100);
+        if ((w.document.body.textContent || '').includes('Calculator')) seenFrames++;
+      }
+      if (process.env.DEBUG_CALC) console.log('DEBUG watch: frames with Calculator =', seenFrames);
+      check('calculator modal opens (stays open)', seenFrames > 25);
+      const btn = t => allBtns().find(b => (b.textContent || '').trim() === t);
+      for (const k of ['7', '×', '8', '=']) { const bb = btn(k); if (bb) bb.click(); await sleep(80); }
+      await sleep(300);
+      const display = [...w.document.querySelectorAll('p')].find(p => (p.className || '').includes('text-3xl'));
+      check('7 × 8 = 56 computed', display && display.textContent.replace(/\s/g, '').includes('56'), 'display=' + (display && display.textContent));
+      check('calculation saved to history tape', (w.document.body.textContent || '').includes('7 × 8 = 56'));
+      w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape' }));
+      await sleep(300);
+      check('Escape closes the calculator', !(w.document.body.textContent || '').includes('Calculator'));
+    }
+  } catch (e) { check('calculator flow', false, e.message); }
+
   // make sure we're on the COMONDES table with our real order
   try { const t = tabBtn('COMONDES'); if (t && (t.getAttribute('class') || '').indexOf('on') < 0) { t.click(); await sleep(1200); } } catch (e) {}
   await sleep(1000);
