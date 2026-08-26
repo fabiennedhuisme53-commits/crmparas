@@ -188,7 +188,7 @@ function makeDom() {
       const btn = t => allBtns().find(b => (b.textContent || '').trim() === t);
       for (const k of ['7', '×', '8', '=']) { const bb = btn(k); if (bb) bb.click(); await sleep(80); }
       await sleep(300);
-      const display = [...w.document.querySelectorAll('p')].find(p => (p.className || '').includes('text-3xl'));
+      const display = w.document.querySelector('.pv-num');
       check('7 × 8 = 56 computed', display && display.textContent.replace(/\s/g, '').includes('56'), 'display=' + (display && display.textContent));
       check('calculation saved to history tape', (w.document.body.textContent || '').includes('7 × 8 = 56'));
       w.dispatchEvent(new w.KeyboardEvent('keydown', { key: 'Escape' }));
