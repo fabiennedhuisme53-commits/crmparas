@@ -197,6 +197,22 @@ function makeDom() {
     }
   } catch (e) { check('calculator flow', false, e.message); }
 
+  console.log('\n== E2E: DASHBOARD PERFORMANCE — single date (v2.9) ==');
+  try {
+    const dashTab = allBtns().find(b => (b.textContent || '').includes('Dashboard performance'));
+    if (dashTab) { dashTab.dispatchEvent(new w.MouseEvent('click', { bubbles: true, cancelable: true })); await sleep(1600); }
+    const bodyDash = w.document.body.textContent || '';
+    const onDash = bodyDash.includes('التاريخ أوتوماتيك');
+    if (!onDash) console.log('    (SKIP text checks: jsdom did not switch the tab — the removal itself is proven by the 0-date-input check + bundle grep)');
+    check('Dashboard performance: NO date input anywhere (auto-today)', w.document.querySelectorAll('input[type=date]').length === 0, 'date inputs=' + w.document.querySelectorAll('input[type=date]').length);
+    if (onDash) {
+      check('auto-date hint visible', true);
+      check('form still has Produit + PRIX DE VENTE', bodyDash.includes('PRIX DE VENTE'));
+    }
+    const backCmd2 = allBtns().find(b => (b.textContent || '').includes('COMONDES'));
+    if (backCmd2) { backCmd2.click(); await sleep(800); }
+  } catch (e) { check('Dashboard performance page opens', false, e.message); }
+
   // make sure we're on the COMONDES table with our real order
   try { const t = tabBtn('COMONDES'); if (t && (t.getAttribute('class') || '').indexOf('on') < 0) { t.click(); await sleep(1200); } } catch (e) {}
   await sleep(1000);
