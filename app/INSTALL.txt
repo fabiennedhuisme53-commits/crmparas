@@ -1,6 +1,6 @@
 ════════════════════════════════════════════════════════
   Paraveda CRM — النسخة النهائية (مُصلَحة + محصَّنة + ميزات)
-  v4.0 FINAL — SAPPHIRE LUXE
+  v5.0 FINAL — PARAVEDA ONE
 ════════════════════════════════════════════════════════
 
 📦 المحتوى:
@@ -53,6 +53,24 @@ https://الدومين-ديالك/api.php?action=backups&token=c6e04cb5de9088be0
 الاسترجاع (POST على api.php):
    Header:  X-Sync-Token: c6e04cb5de9088be01a685abc243995a80426eba45de2060
    Body:    {"action":"restore","file":"b-20260824-120000-123.json"}
+
+✨ الجديد فـ v5.0 — PARAVEDA ONE: Design System موحد 🎨
+────────────────────────────────────────────────────────
+إعادة تصميم شاملة (UI/UX فقط — صفر تغيير فالوظائف):
+  - Palette موحدة: 17 عائلة ألوان → 4 أدوار دلالية
+    (Primary أزرق / Success أخضر / Warning ذهبي / Danger
+    أحمر) + محايد slate — نفس اللغة فكل الصفحات
+  - مينيو جانبي فاتح نظيف (SaaS 2026): عنصر نشط
+    بحبة ناعمة + شريط جانبي
+  - أزرار موحدة: كل الـ gradients تحيّدو → solid/soft/
+    ghost متناسقين بنفس radius و shadow
+  - جدول الطلبات: قراءة أسهل — فواصل خفيفة، هيدر
+    uppercase دقيق، صف hover، أرقام منتظمة، actions
+    كيبانو عند المرور
+  - Cards/Modals/Dropdowns: نفس radius + ظلال طبقية
+  - حقول موحدة + focus rings + checkboxes متناسقة
+  - Cairo عربي + Inter، RTL/LTR، responsive كامل
+  - سكرولبار رفيع + حركات ناعمة 150ms
 
 ✨ الجديد فـ v4.0 — SAPPHIRE LUXE ✨ (تصميم جديد كلياً)
 ────────────────────────────────────────────────────────
